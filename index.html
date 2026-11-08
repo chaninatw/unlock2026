@@ -1,4 +1,8 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Containment Lab Timer</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -192,6 +196,8 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
 }
 </style>
+</head>
+<body>
 
 <div id="app">
   <!-- ===== LANDING ===== -->
@@ -265,7 +271,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
         <div class="lock-cover" id="lockCover" hidden>
           <b>Terminal locked</b>
           <div class="mono" id="lockTime">05:00</div>
-          <span>Two incorrect codes in a row. The keypad reopens when this lock timer reaches zero.</span>
+          <span>Two incorrect codes within 5 minutes. The keypad reopens when this lock timer reaches zero.</span>
         </div>
       </div>
     </div>
@@ -395,9 +401,10 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
 (() => {
   const KEY = 'containment-lab-timer-v1';
   const LOCK_MS = 5 * 60 * 1000;
+  const WINDOW_MS = 5 * 60 * 1000; // 2 wrong codes within this window = lock
   const DEFAULT = {
     durationMs: 3600000, remainingMs: 3600000, endAt: 0, status: 'ready',
-    password: '1234', wrongStreak: 0, lockUntil: 0, attempts: [], attemptSeq: 0,
+    password: '1234', wrongStreak: 0, lastWrongAt: 0, lockUntil: 0, attempts: [], attemptSeq: 0,
     message: '', bg: { on: false, source: 'synth', volume: 0.5, fileName: '' }, updatedAt: 0
   };
   const $ = id => document.getElementById(id);
@@ -443,6 +450,8 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   /* ---------- clock helpers ---------- */
   const remaining = () => state.status === 'running' ? Math.max(0, state.endAt - Date.now()) : state.remainingMs;
   const lockLeft = () => Math.max(0, state.lockUntil - Date.now());
+  const windowLeft = () => state.wrongStreak > 0 ? Math.max(0, (state.lastWrongAt || 0) + WINDOW_MS - Date.now()) : 0;
+  const activeStreak = () => windowLeft() > 0 ? state.wrongStreak : 0;
   function fmt(ms) {
     const s = Math.ceil(ms / 1000), m = Math.floor(s / 60), r = s % 60;
     return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
@@ -585,7 +594,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
         const last = state.attempts[state.attempts.length - 1];
         if (last && !last.ok) {
           if (state.lockUntil > prev.lockUntil) { sfx.lock(); setKpFlash('bad', 'Access denied'); }
-          else { sfx.wrong(); setKpFlash('bad', 'Access denied · 1 try left before lockout'); }
+          else { sfx.wrong(); setKpFlash('bad', 'Access denied · another wrong code within 5 min locks the keypad'); }
         }
       }
       if (state.message && state.message !== prev.message) sfx.msg();
@@ -621,11 +630,12 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
     const attempts = [...state.attempts, { t: Date.now(), code: entry, ok }].slice(-40);
     const seq = state.attemptSeq + 1;
     entry = '';
-    if (ok) setState({ status: 'escaped', remainingMs: remaining(), endAt: 0, wrongStreak: 0, lockUntil: 0, attempts, attemptSeq: seq });
+    if (ok) setState({ status: 'escaped', remainingMs: remaining(), endAt: 0, wrongStreak: 0, lastWrongAt: 0, lockUntil: 0, attempts, attemptSeq: seq });
     else {
-      const streak = state.wrongStreak + 1;
-      if (streak >= 2) setState({ wrongStreak: 0, lockUntil: Date.now() + LOCK_MS, attempts, attemptSeq: seq });
-      else setState({ wrongStreak: streak, attempts, attemptSeq: seq });
+      const now = Date.now();
+      const streak = activeStreak() + 1;
+      if (streak >= 2) setState({ wrongStreak: 0, lastWrongAt: 0, lockUntil: now + LOCK_MS, attempts, attemptSeq: seq });
+      else setState({ wrongStreak: streak, lastWrongAt: now, attempts, attemptSeq: seq });
     }
   }
   $('keys').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) press(b.dataset.k); });
@@ -654,7 +664,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   }
   function pause() { if (state.status === 'running') setState({ status: 'paused', remainingMs: remaining(), endAt: 0 }); }
   function reset() {
-    setState({ status: 'ready', remainingMs: state.durationMs, endAt: 0, wrongStreak: 0, lockUntil: 0, attempts: [], attemptSeq: state.attemptSeq });
+    setState({ status: 'ready', remainingMs: state.durationMs, endAt: 0, wrongStreak: 0, lastWrongAt: 0, lockUntil: 0, attempts: [], attemptSeq: state.attemptSeq });
   }
   function setTime(ms) {
     ms = Math.max(1000, ms);
@@ -686,10 +696,10 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   $('codeSave').onclick = () => {
     const v = $('codeInput').value;
     if (!/^\d{4}$/.test(v)) { $('codeHint').className = 'hint err'; $('codeHint').textContent = 'The code needs exactly 4 digits.'; return; }
-    setState({ password: v, wrongStreak: 0 });
+    setState({ password: v, wrongStreak: 0, lastWrongAt: 0 });
     $('codeHint').className = 'hint ok'; $('codeHint').innerHTML = 'Saved. Current code: <span class="mono" id="codeCurrent">' + v + '</span>';
   };
-  $('unlockBtn').onclick = () => setState({ lockUntil: 0, wrongStreak: 0 });
+  $('unlockBtn').onclick = () => setState({ lockUntil: 0, wrongStreak: 0, lastWrongAt: 0 });
 
   $('attnBtn').onclick = () => command('attention');
   document.querySelectorAll('[data-test]').forEach(b => b.onclick = () => command(b.dataset.test));
@@ -771,7 +781,8 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
       if (document.activeElement !== $('codeInput') && $('codeHint').className === 'hint') $('codeInput').value = state.password;
       const lb = $('lockbox');
       if (lock > 0) { lb.className = 'lockbox on'; $('lockText').textContent = 'Keypad locked · opens in ' + fmt(lock); $('unlockBtn').hidden = false; }
-      else { lb.className = 'lockbox'; $('lockText').textContent = 'Keypad open · ' + state.wrongStreak + ' wrong in a row (2 locks it for 5 min)'; $('unlockBtn').hidden = true; }
+      else if (activeStreak() > 0) { lb.className = 'lockbox'; $('lockText').textContent = '1 wrong code · another wrong code in the next ' + fmt(windowLeft()) + ' locks the keypad'; $('unlockBtn').hidden = true; }
+      else { lb.className = 'lockbox'; $('lockText').textContent = 'Keypad open · 2 wrong codes within 5 min lock it for 5 min'; $('unlockBtn').hidden = true; }
       const log = $('log');
       const sig = state.attemptSeq + ':' + state.attempts.length;
       if (log.dataset.sig !== sig) {
@@ -809,5 +820,5 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   route();
 })();
 </script>
-
-</body></html>
+</body>
+</html>
