@@ -148,9 +148,16 @@ body[data-view="player"] #player { min-height: 100%; height: 100%; }
 @keyframes fadeout { to { opacity: 0; } }
 
 .arm { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; background: rgba(7,16,18,.9); padding: 16px; }
-.arm button { display: grid; gap: 8px; justify-items: center; padding: 28px 32px; border-radius: 12px; border: 2px solid var(--readout); background: var(--panel); cursor: pointer; max-width: 420px; text-align: center; }
-.arm b { font-family: var(--f-display); font-size: 22px; letter-spacing: .12em; text-transform: uppercase; color: var(--readout); }
-.arm span { color: var(--muted); font-size: 14px; }
+.arm { overflow-y: auto; }
+.arm-card { display: grid; gap: 14px; width: min(460px, 100%); padding: 24px; border-radius: 12px; border: 2px solid var(--readout); background: var(--panel); }
+.arm-card > b { font-family: var(--f-display); font-size: 22px; letter-spacing: .12em; text-transform: uppercase; color: var(--readout); }
+input.room { font-family: var(--f-mono); font-size: 26px; letter-spacing: .3em; text-transform: uppercase; text-align: center; width: 100%; }
+.link { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-display); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.conn { flex-wrap: wrap; }
+.conn #connText { flex: 1 1 260px; min-width: 0; }
+.room-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.room-row input.code { width: 8.5ch; min-height: 40px; font-size: 18px; letter-spacing: .2em; text-transform: uppercase; }
+.room-row .btn { min-height: 40px; }
 
 /* ---------- game master ---------- */
 #gm { padding-block: 20px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -240,18 +247,18 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
     <div class="landing-inner">
       <div class="label">Escape room · Science lab theme</div>
       <h1>Containment <span>Lab Timer</span></h1>
-      <p>One page, two screens. The player screen shows the countdown and the override keypad. The game master console controls the clock, the code, and the sound. Both stay in sync when opened in the same browser.</p>
+      <p>Two computers, one game. The player terminal shows the countdown and takes the override code. The game master console controls the clock, the code and the sound. Both computers need internet and the same room code.</p>
       <div class="choices">
-        <button class="choice" data-go="player"><b>Player screen</b><span>Full-screen countdown and 4-digit keypad for the room display.</span></button>
+        <button class="choice" data-go="player"><b>Player terminal</b><span>Open on the computer in the room. Countdown, keypad and sound.</span></button>
         <button class="choice" data-go="gm"><b>Game master console</b><span>Time, start/pause/reset, code, attention call, background sound.</span></button>
-        <button class="choice" data-go="split"><b>Both side by side</b><span>Test everything on one screen before the game.</span></button>
+        <button class="choice" data-go="split"><b>Test on one computer</b><span>Both screens side by side, to try things out before the game.</span></button>
       </div>
       <div class="howto">
         <b class="label">Room setup</b>
         <ol>
-          <li>Open this page in two windows of the same browser on the same computer (one per monitor works well).</li>
-          <li>Choose <b>Player screen</b> in the window on the room display, tap it once to switch on sound, then use Full screen.</li>
-          <li>Choose <b>Game master console</b> in the other window and run the game from there.</li>
+          <li>On the game master computer, open this page and choose <b>Game master console</b>. Note the room code at the top.</li>
+          <li>On the player computer, open this page, choose <b>Player terminal</b>, type the same room code and press <b>Activate terminal</b>. Then press Full screen.</li>
+          <li>The console shows “player terminal connected · sound on” when everything is ready.</li>
         </ol>
       </div>
     </div>
@@ -263,7 +270,8 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
     <header class="p-head">
       <div class="lab">Lab 4B · Pathogen containment <small>Specimen BX-217</small></div>
       <div class="right">
-        <span class="label" id="pClockNote">Biosafety level 4</span>
+        <span class="link" id="pLink"><span class="dot"></span><span id="pLinkText">Offline</span></span>
+        <button class="icon-btn" id="setupBtn" type="button">Setup</button>
         <button class="icon-btn" id="fsBtn" type="button">Full screen</button>
       </div>
     </header>
@@ -337,7 +345,16 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
     </div>
     <div class="flash-overlay" id="flash"></div>
     <div class="arm" id="arm" hidden>
-      <button type="button" id="armBtn"><b>Activate terminal</b><span>Tap once to switch on the lab sound system. Browsers only allow sound after a tap.</span></button>
+      <form class="arm-card" id="armForm" autocomplete="off">
+        <b>Player terminal</b>
+        <label class="field"><span>Room code (shown at the top of the game master console)</span>
+          <input type="text" id="pRoom" class="room" maxlength="8" spellcheck="false" placeholder="ABC123"></label>
+        <label class="field"><span>Background audio file (optional, stays on this computer)</span>
+          <input type="file" id="pBgFile" accept="audio/*"></label>
+        <p class="hint" id="pFileHint">No file chosen. The built-in lab ambience still works.</p>
+        <button class="btn primary big" type="submit">Activate terminal</button>
+        <p class="hint" id="pSetupStatus">Activating also switches on sound. Browsers only allow sound after a click.</p>
+      </form>
     </div>
   </section>
 
@@ -347,13 +364,20 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
       <div class="gm-top">
         <h1>Lab control · Game master</h1>
         <nav>
-          <button class="btn" data-go="player">Player screen</button>
-          <button class="btn" data-go="split">Side by side</button>
+          <button class="btn" data-go="split">Test on this computer</button>
           <button class="btn" data-go="">Setup help</button>
         </nav>
       </div>
 
-      <div class="conn"><span class="dot" id="connDot"></span><span id="connText">Looking for the player screen…</span></div>
+      <div class="conn">
+        <span class="dot" id="connDot"></span><span id="connText">Connecting…</span>
+        <div class="room-row">
+          <span class="label">Room code</span>
+          <input type="text" id="roomInput" class="code" maxlength="8" spellcheck="false" autocomplete="off" aria-label="Room code">
+          <button class="btn" id="roomSet">Use code</button>
+          <button class="btn" id="roomNew">New code</button>
+        </div>
+      </div>
 
       <div class="cards">
         <!-- Clock -->
@@ -410,7 +434,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
         <div class="card">
           <h2>Sound</h2>
           <button class="btn warn big" id="attnBtn">Call for attention</button>
-          <p class="hint">Plays a three-pulse alert and flashes the player screen.</p>
+          <p class="hint">Plays a three-pulse alert and flashes the player terminal.</p>
           <div class="divider"></div>
           <div class="switch"><b>Background sound</b><button class="btn" id="bgToggle" aria-pressed="false">Off</button></div>
           <div class="seg" role="group" aria-label="Background source">
@@ -418,9 +442,8 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
             <button id="srcFile" aria-pressed="false">My audio file</button>
           </div>
           <div class="field" id="fileField">
-            <span>Upload an MP3, WAV or OGG to loop</span>
-            <input type="file" id="bgFile" accept="audio/*">
-            <p class="hint" id="fileHint">No file loaded</p>
+            <span>The audio file is chosen on the player computer: press Setup on the player screen.</span>
+            <p class="hint" id="fileHint">No file on the player terminal yet.</p>
           </div>
           <div class="field">
             <span>Background volume <span class="mono" id="volVal">50%</span></span>
@@ -428,7 +451,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
           </div>
           <div class="divider"></div>
           <div class="field">
-            <span>Test on the player screen</span>
+            <span>Test on the player terminal</span>
             <div class="row"><button class="btn" data-test="victory">Win sequence</button><button class="btn" data-test="wrong">Wrong</button><button class="btn" data-test="alarm">Time up</button></div>
           </div>
         </div>
@@ -448,60 +471,179 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   </section>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script>
 (() => {
-  const KEY = 'containment-lab-timer-v1';
+  const KEY = 'containment-lab-timer-v2';
+  const ROOM_KEY = 'containment-lab-room';
+  const CODE_KEY = 'containment-lab-gm-code';
+  const OFFSET_KEY = 'containment-lab-clock-offset';
   const LOCK_MS = 5 * 60 * 1000;
   const WINDOW_MS = 5 * 60 * 1000; // 2 wrong codes within this window = lock
+  const SALT = 'lab4b-bx217:';
+  // The player computer only keeps a hash of the code, never the code itself.
+  function hashCode(str) {
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < str.length; i++) { const ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
+  }
+  const passHash = code => hashCode(SALT + code);
   const DEFAULT = {
     durationMs: 3600000, remainingMs: 3600000, endAt: 0, status: 'ready',
-    password: '1234', wrongStreak: 0, lastWrongAt: 0, lockUntil: 0, attempts: [], attemptSeq: 0,
-    message: '', bg: { on: false, source: 'synth', volume: 0.5, fileName: '' }, updatedAt: 0
+    passHash: passHash('1234'), wrongStreak: 0, lastWrongAt: 0, lockUntil: 0, attempts: [], attemptSeq: 0,
+    message: '', bg: { on: false, source: 'synth', volume: 0.5 }, updatedAt: 0
   };
   const $ = id => document.getElementById(id);
   const clone = o => JSON.parse(JSON.stringify(o));
-
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
   function load() {
     try {
-      const s = JSON.parse(localStorage.getItem(KEY));
-      if (s && s.password) return { ...clone(DEFAULT), ...s, bg: { ...DEFAULT.bg, ...(s.bg || {}) } };
+      const s = JSON.parse(store.get(KEY));
+      if (s && s.passHash) return { ...clone(DEFAULT), ...s, bg: { ...DEFAULT.bg, ...(s.bg || {}) } };
     } catch (e) {}
     return clone(DEFAULT);
   }
   let state = load();
+  let gmCode = store.get(CODE_KEY) || '';
+  if (!gmCode || passHash(gmCode) !== state.passHash) gmCode = state.passHash === DEFAULT.passHash ? '1234' : '';
 
-  /* ---------- sync between tabs ---------- */
-  let bc = null;
-  try { bc = new BroadcastChannel('containment-lab-timer'); } catch (e) {}
-  const post = m => { try { bc && bc.postMessage(m); } catch (e) {} };
+  /* ---------- shared clock ----------
+     Every time in the shared state uses the game master computer's clock.
+     The player terminal measures the difference from the console's heartbeat,
+     so the two computers' clocks do not need to match. */
+  let view = 'landing';
+  const isGM = () => view === 'gm' || view === 'split';
+  let clockOffset = 0, offsetSamples = [];
+  { const o = parseFloat(store.get(OFFSET_KEY)); if (isFinite(o)) clockOffset = o; }
+  const now = () => Date.now() + (isGM() ? 0 : clockOffset);
+  function addOffsetSample(gmTime) {
+    offsetSamples.push(gmTime - Date.now());
+    if (offsetSamples.length > 12) offsetSamples.shift();
+    clockOffset = Math.max(...offsetSamples); // network delay only makes a sample smaller
+    store.set(OFFSET_KEY, String(clockOffset));
+  }
 
+  /* ---------- sync between the two computers (MQTT over the internet) ---------- */
+  const qs = new URLSearchParams(location.search);
+  const BROKERS = qs.get('broker') ? [qs.get('broker')] : [
+    'wss://broker.emqx.io:8084/mqtt',
+    'wss://broker.hivemq.com:8884/mqtt',
+    'wss://test.mosquitto.org:8081/mqtt'
+  ];
+  const ME = Math.random().toString(36).slice(2, 10);
+  const cleanRoom = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  function newRoom() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 6; i++) s += A[Math.floor(Math.random() * A.length)]; return s; }
+  let room = cleanRoom(store.get(ROOM_KEY));
+  let client = null, online = false, brokerIdx = 0, everConnected = false, retryT = 0, gotState = false;
+  let lastBeat = 0, remoteAudio = false, remoteFile = '', lastGmBeat = 0;
+  const topic = t => 'containment-lab-timer/v2/' + room + '/' + t;
+
+  function connect() {
+    clearTimeout(retryT);
+    if (client) { const old = client; client = null; try { old.end(true); } catch (e) {} }
+    online = false;
+    if (!room || !window.mqtt || view === 'landing') { render(); return; }
+    const url = BROKERS[brokerIdx % BROKERS.length];
+    let c, connected = false, done = false;
+    try {
+      c = window.mqtt.connect(url, { clientId: 'clt_' + ME + '_' + Math.random().toString(16).slice(2, 6), keepalive: 20, reconnectPeriod: 0, connectTimeout: 8000, clean: true });
+    } catch (e) { brokerIdx++; retryT = setTimeout(connect, 3000); return; }
+    client = c;
+    c.on('connect', () => {
+      if (client !== c) return;
+      connected = true; everConnected = true; online = true; gotState = false;
+      c.subscribe(topic('#'), { qos: 1 });
+      // A brand-new room has no saved state yet: the console publishes its own.
+      setTimeout(() => { if (client === c && !gotState && isGM()) publishState(); }, 1500);
+      sendBeat(); render();
+    });
+    c.on('message', (t, payload) => {
+      if (client !== c) return;
+      let m; try { m = JSON.parse(payload.toString()); } catch (e) { return; }
+      if (!m || m.from === ME) return;
+      handle(t.slice(t.lastIndexOf('/') + 1), m);
+    });
+    const down = () => {
+      if (done) return; done = true;
+      if (client !== c) return;
+      client = null; online = false; render();
+      try { c.end(true); } catch (e) {}
+      if (!connected) brokerIdx++; // try the next server if this one never answered
+      retryT = setTimeout(connect, connected ? 1500 : 3000);
+    };
+    c.on('close', down);
+    c.on('offline', down);
+    c.on('error', () => {});
+  }
+  function pub(kind, obj, opts) {
+    if (!client || !online) return;
+    try { client.publish(topic(kind), JSON.stringify({ from: ME, ...obj }), opts || { qos: 0 }); } catch (e) {}
+  }
+  function publishState() { pub('state', { state }, { qos: 1, retain: true }); }
+  function sendBeat() {
+    if (view === 'player') pub('beat', { role: 'player', audio: audioReady, file: bgName });
+    if (isGM()) pub('beat', { role: 'gm', t: Date.now() });
+  }
+  setInterval(sendBeat, 2500);
+  function handle(kind, m) {
+    if (kind === 'state' && m.state) {
+      gotState = true;
+      if (m.state.updatedAt > state.updatedAt) {
+        const prev = state;
+        state = { ...clone(DEFAULT), ...m.state, bg: { ...DEFAULT.bg, ...(m.state.bg || {}) } };
+        persist(); onState(prev);
+      } else if (m.state.updatedAt < state.updatedAt) publishState(); // ours is newer (e.g. made while offline)
+    } else if (kind === 'cmd') runCmd(m.name);
+    else if (kind === 'beat') {
+      if (m.role === 'player') { lastBeat = Date.now(); remoteAudio = !!m.audio; remoteFile = m.file || ''; }
+      else if (m.role === 'gm') { lastGmBeat = Date.now(); if (!isGM() && m.t) addOffsetSample(m.t); }
+      render();
+    }
+  }
+  function setRoom(r) {
+    r = cleanRoom(r); if (!r) return false;
+    if (!isGM() && r !== room) { state = clone(DEFAULT); persist(); } // the player takes the console's state for the new room
+    room = r; store.set(ROOM_KEY, r); brokerIdx = 0; connect(); return true;
+  }
+
+  function persist() { store.set(KEY, JSON.stringify(state)); }
   function setState(patch) {
     const prev = state;
-    state = { ...state, ...patch, updatedAt: Math.max(Date.now(), state.updatedAt + 1) };
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
-    post({ type: 'state', state });
-    onState(prev);
+    state = { ...state, ...patch, updatedAt: Math.max(now(), state.updatedAt + 1) };
+    persist(); publishState(); onState(prev);
   }
-  function receiveState(s) {
-    if (!s || s.updatedAt <= state.updatedAt) return;
-    const prev = state; state = s; onState(prev);
-  }
-  function command(name) { post({ type: 'cmd', name }); runCmd(name); }
+  function command(name) { pub('cmd', { name }, { qos: 1 }); runCmd(name); }
 
-  if (bc) bc.onmessage = e => {
-    const m = e.data || {};
-    if (m.type === 'state') receiveState(m.state);
-    else if (m.type === 'cmd') runCmd(m.name);
-    else if (m.type === 'hello') { post({ type: 'state', state }); if (bgRaw) post({ type: 'bgfile', name: bgName, buf: bgRaw.slice(0) }); }
-    else if (m.type === 'beat') { lastBeat = Date.now(); remoteAudio = m.audio; }
-    else if (m.type === 'bgfile') { bgRaw = m.buf; bgName = m.name; decodeBg(); }
-  };
-  window.addEventListener('storage', e => { if (e.key === KEY && e.newValue) { try { receiveState(JSON.parse(e.newValue)); } catch (x) {} } });
+  /* ---------- background file kept on the player computer ---------- */
+  function idb() {
+    return new Promise((res, rej) => {
+      try { const r = indexedDB.open('containment-lab', 1); r.onupgradeneeded = () => r.result.createObjectStore('files'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }
+      catch (e) { rej(e); }
+    });
+  }
+  function idbPut(name, buf) { idb().then(db => { db.transaction('files', 'readwrite').objectStore('files').put({ name, buf }, 'bg'); }).catch(() => {}); }
+  function idbGet() {
+    return idb().then(db => new Promise(res => { const q = db.transaction('files').objectStore('files').get('bg'); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); })).catch(() => null);
+  }
+  function renderSetup() {
+    $('pFileHint').textContent = bgName ? 'Loaded: ' + bgName + '. The console can now switch to “My audio file”.' : 'No file chosen. The built-in lab ambience still works.';
+    const s = $('pSetupStatus');
+    if (s.className === 'hint err') return;
+    if (!room) s.textContent = 'Activating also switches on sound. Browsers only allow sound after a click.';
+    else if (online && Date.now() - lastGmBeat < 8000) s.textContent = 'Linked to lab control in room ' + room + '.';
+    else if (online) s.textContent = 'Online in room ' + room + ' · waiting for the game master console.';
+    else s.textContent = 'Connecting to room ' + room + '…';
+  }
 
   /* ---------- clock helpers ---------- */
-  const remaining = () => state.status === 'running' ? Math.max(0, state.endAt - Date.now()) : state.remainingMs;
-  const lockLeft = () => Math.max(0, state.lockUntil - Date.now());
-  const windowLeft = () => state.wrongStreak > 0 ? Math.max(0, (state.lastWrongAt || 0) + WINDOW_MS - Date.now()) : 0;
+  const remaining = () => state.status === 'running' ? Math.max(0, state.endAt - now()) : state.remainingMs;
+  const lockLeft = () => Math.max(0, state.lockUntil - now());
+  const windowLeft = () => state.wrongStreak > 0 ? Math.max(0, (state.lastWrongAt || 0) + WINDOW_MS - now()) : 0;
   const activeStreak = () => windowLeft() > 0 ? state.wrongStreak : 0;
   function fmt(ms) {
     const s = Math.ceil(ms / 1000), m = Math.floor(s / 60), r = s % 60;
@@ -510,7 +652,6 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   const clock = d => new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   /* ---------- views ---------- */
-  let view = 'landing';
   const playerActive = () => view === 'player' || view === 'split';
   function route() {
     const h = location.hash.slice(1);
@@ -519,7 +660,8 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
     $('landing').hidden = view !== 'landing';
     $('player').hidden = !playerActive();
     $('gm').hidden = !(view === 'gm' || view === 'split');
-    $('arm').hidden = !playerActive() || audioReady;
+    $('arm').hidden = !playerActive() || (audioReady && !!room);
+    $('pRoom').value = room;
     syncBg(); render();
   }
   document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { location.hash = b.dataset.go; }));
@@ -538,7 +680,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
       ctx.resume(); audioReady = true;
     } catch (e) { audioReady = false; }
     $('arm').hidden = true;
-    decodeBg(); syncBg(); beat();
+    decodeBg(); syncBg(); sendBeat();
     try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {}); } catch (e) {}
   }
   function tone({ f = 440, type = 'sine', t = 0, d = 0.2, v = 0.3, f2 = 0, dest }) {
@@ -699,10 +841,6 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
     clearTimeout(flash.t); flash.t = setTimeout(() => { el.className = 'flash-overlay'; }, kind === 'attn' ? 3200 : 3100);
   }
 
-  /* ---------- player heartbeat ---------- */
-  let lastBeat = 0, remoteAudio = false;
-  function beat() { if (playerActive()) post({ type: 'beat', audio: audioReady }); }
-  setInterval(beat, 2000);
 
   /* ---------- state transitions (sound + visuals on player) ---------- */
   let kpFlash = '', kpFlashT = 0, kpNote = '';
@@ -734,7 +872,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   let entry = '', submitting = false;
   const canEnter = () => state.status === 'running' && lockLeft() === 0 && !submitting;
   function press(k) {
-    if (!audioReady && playerActive()) initAudio();
+    if (!audioReady && playerActive() && room) initAudio();
     if (!canEnter()) return;
     if (k === 'clr') entry = '';
     else if (k === 'del') entry = entry.slice(0, -1);
@@ -747,26 +885,48 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   function submit() {
     submitting = false;
     if (state.status !== 'running' || entry.length !== 4) { render(); return; }
-    const ok = entry === state.password;
-    const attempts = [...state.attempts, { t: Date.now(), code: entry, ok }].slice(-40);
+    const ok = passHash(entry) === state.passHash;
+    const attempts = [...state.attempts, { t: now(), code: entry, ok }].slice(-40);
     const seq = state.attemptSeq + 1;
     entry = '';
     if (ok) setState({ status: 'escaped', remainingMs: remaining(), endAt: 0, wrongStreak: 0, lastWrongAt: 0, lockUntil: 0, attempts, attemptSeq: seq });
     else {
-      const now = Date.now();
+      const t = now();
       const streak = activeStreak() + 1;
-      if (streak >= 2) setState({ wrongStreak: 0, lastWrongAt: 0, lockUntil: now + LOCK_MS, attempts, attemptSeq: seq });
-      else setState({ wrongStreak: streak, lastWrongAt: now, attempts, attemptSeq: seq });
+      if (streak >= 2) setState({ wrongStreak: 0, lastWrongAt: 0, lockUntil: t + LOCK_MS, attempts, attemptSeq: seq });
+      else setState({ wrongStreak: streak, lastWrongAt: t, attempts, attemptSeq: seq });
     }
   }
   $('keys').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) press(b.dataset.k); });
+  // Keyboard or USB/wireless number pad on the player computer.
+  function keyFor(e) {
+    const m = /^Numpad(\d)$/.exec(e.code || '');
+    if (m) return m[1];
+    if (e.code === 'NumpadDecimal' || e.key === 'Backspace') return 'del';
+    if (e.code === 'NumpadSubtract' || e.key === 'Escape') return 'clr';
+    if (/^\d$/.test(e.key)) return e.key;
+    return null;
+  }
   document.addEventListener('keydown', e => {
-    if (!playerActive() || e.target.closest('input, textarea')) return;
-    if (/^\d$/.test(e.key)) press(e.key);
-    else if (e.key === 'Backspace') press('del');
-    else if (e.key === 'Escape') press('clr');
+    if (!playerActive() || !$('arm').hidden || e.target.closest('input, textarea')) return;
+    const k = keyFor(e); if (!k) return;
+    e.preventDefault(); press(k);
   });
-  $('armBtn').addEventListener('click', initAudio);
+  $('armForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const r = cleanRoom($('pRoom').value);
+    if (!r) { $('pSetupStatus').className = 'hint err'; $('pSetupStatus').textContent = 'Type the room code shown on the game master console.'; return; }
+    if (r !== room) setRoom(r);
+    initAudio();
+  });
+  $('setupBtn').addEventListener('click', () => { $('pRoom').value = room; $('pSetupStatus').className = 'hint'; $('arm').hidden = false; });
+  $('pBgFile').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { bgRaw = r.result; bgName = f.name; idbPut(f.name, r.result); decodeBg(); renderSetup(); sendBeat(); };
+    r.onerror = () => { $('pFileHint').textContent = 'Could not read that file. Try an MP3 or WAV.'; };
+    r.readAsArrayBuffer(f);
+  });
   $('fsBtn').addEventListener('click', () => {
     if (!audioReady) initAudio();
     const el = view === 'split' ? $('player') : document.documentElement;
@@ -780,7 +940,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   function start() {
     if (state.status === 'ready' || state.status === 'paused') {
       if (state.remainingMs <= 0) return;
-      setState({ status: 'running', endAt: Date.now() + state.remainingMs });
+      setState({ status: 'running', endAt: now() + state.remainingMs });
     }
   }
   function pause() { if (state.status === 'running') setState({ status: 'paused', remainingMs: remaining(), endAt: 0 }); }
@@ -789,12 +949,12 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   }
   function setTime(ms) {
     ms = Math.max(1000, ms);
-    if (state.status === 'running') setState({ durationMs: ms, endAt: Date.now() + ms });
+    if (state.status === 'running') setState({ durationMs: ms, endAt: now() + ms });
     else setState({ durationMs: ms, remainingMs: ms, endAt: 0, status: state.status === 'paused' ? 'paused' : 'ready' });
   }
   function adjust(sec) {
     const d = sec * 1000;
-    if (state.status === 'running') setState({ endAt: Math.max(Date.now() + 1000, state.endAt + d) });
+    if (state.status === 'running') setState({ endAt: Math.max(now() + 1000, state.endAt + d) });
     else if (state.status === 'ready' || state.status === 'paused') setState({ remainingMs: Math.max(1000, state.remainingMs + d) });
   }
   $('startBtn').onclick = start;
@@ -817,7 +977,8 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   $('codeSave').onclick = () => {
     const v = $('codeInput').value;
     if (!/^\d{4}$/.test(v)) { $('codeHint').className = 'hint err'; $('codeHint').textContent = 'The code needs exactly 4 digits.'; return; }
-    setState({ password: v, wrongStreak: 0, lastWrongAt: 0 });
+    gmCode = v; store.set(CODE_KEY, v);
+    setState({ passHash: passHash(v), wrongStreak: 0, lastWrongAt: 0 });
     $('codeHint').className = 'hint ok'; $('codeHint').innerHTML = 'Saved. Current code: <span class="mono" id="codeCurrent">' + v + '</span>';
   };
   $('unlockBtn').onclick = () => setState({ lockUntil: 0, wrongStreak: 0, lastWrongAt: 0 });
@@ -828,18 +989,8 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   $('srcSynth').onclick = () => setState({ bg: { ...state.bg, source: 'synth' } });
   $('srcFile').onclick = () => setState({ bg: { ...state.bg, source: 'file' } });
   $('bgVol').addEventListener('input', e => setState({ bg: { ...state.bg, volume: e.target.value / 100 } }));
-  $('bgFile').addEventListener('change', e => {
-    const f = e.target.files && e.target.files[0]; if (!f) return;
-    const r = new FileReader();
-    r.onload = () => {
-      bgRaw = r.result; bgName = f.name;
-      post({ type: 'bgfile', name: f.name, buf: bgRaw.slice(0) });
-      decodeBg();
-      setState({ bg: { ...state.bg, source: 'file', fileName: f.name } });
-    };
-    r.onerror = () => { $('fileHint').textContent = 'Could not read that file. Try an MP3 or WAV.'; };
-    r.readAsArrayBuffer(f);
-  });
+  $('roomSet').onclick = () => { if (!setRoom($('roomInput').value)) $('roomInput').focus(); };
+  $('roomNew').onclick = () => { const r = newRoom(); $('roomInput').value = r; setRoom(r); };
 
   $('msgSend').onclick = () => setState({ message: $('msgInput').value.trim() });
   $('msgClear').onclick = () => setState({ message: '' });
@@ -888,6 +1039,12 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
       const showWin = (st === 'escaped' || previewWin) && victoryPhase !== 'doors';
       $('win').hidden = !showWin;
       if (showWin) { $('winLeft').textContent = fmt(rem); $('winUsed').textContent = fmt(Math.max(0, state.durationMs - rem)); }
+      const ld = $('pLink').firstElementChild, lt = $('pLinkText');
+      if (view === 'split') { ld.className = 'dot ok'; lt.textContent = 'Test mode'; }
+      else if (!online) { ld.className = 'dot bad'; lt.textContent = 'Offline'; }
+      else if (Date.now() - lastGmBeat < 8000) { ld.className = 'dot ok'; lt.textContent = 'Linked'; }
+      else { ld.className = 'dot warn'; lt.textContent = 'Waiting for lab control'; }
+      if (!$('arm').hidden) renderSetup();
       // final countdown beeps
       const sec = Math.ceil(rem / 1000);
       if (st === 'running' && sec !== lastSec && sec <= 10 && sec > 0) sfx.beep();
@@ -901,8 +1058,9 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
       $('startBtn').textContent = st === 'paused' ? 'Resume' : 'Start';
       $('pauseBtn').disabled = st !== 'running';
       document.querySelectorAll('[data-adj]').forEach(b => { b.disabled = st === 'escaped' || st === 'timeout'; });
-      const cur = $('codeCurrent'); if (cur) cur.textContent = state.password;
-      if (document.activeElement !== $('codeInput') && $('codeHint').className === 'hint') $('codeInput').value = state.password;
+      const cur = $('codeCurrent'); if (cur) cur.textContent = gmCode || 'set on another computer';
+      if (document.activeElement !== $('codeInput') && $('codeHint').className === 'hint') $('codeInput').value = gmCode;
+      if (document.activeElement !== $('roomInput')) $('roomInput').value = room;
       const lb = $('lockbox');
       if (lock > 0) { lb.className = 'lockbox on'; $('lockText').textContent = 'Keypad locked · opens in ' + fmt(lock); $('unlockBtn').hidden = false; }
       else if (activeStreak() > 0) { lb.className = 'lockbox'; $('lockText').textContent = '1 wrong code · another wrong code in the next ' + fmt(windowLeft()) + ' locks the keypad'; $('unlockBtn').hidden = true; }
@@ -919,29 +1077,35 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
       $('srcSynth').setAttribute('aria-pressed', state.bg.source === 'synth');
       $('srcFile').setAttribute('aria-pressed', state.bg.source === 'file');
       $('fileField').hidden = state.bg.source !== 'file';
-      $('fileHint').textContent = state.bg.fileName ? 'Loaded: ' + state.bg.fileName + (bgRaw ? '' : ' (choose it again after reloading this page)') : 'No file loaded';
+      const fileOnPlayer = view === 'split' ? bgName : remoteFile;
+      $('fileHint').textContent = fileOnPlayer ? 'Player terminal has: ' + fileOnPlayer : 'No file on the player terminal yet.';
       if (document.activeElement !== $('bgVol')) $('bgVol').value = Math.round(state.bg.volume * 100);
       $('volVal').textContent = Math.round(state.bg.volume * 100) + '%';
       $('msgHint').textContent = state.message ? 'On screen now: "' + state.message + '"' : 'Nothing on screen.';
       // connection
-      const localPlayer = view === 'split';
-      const seen = localPlayer || Date.now() - lastBeat < 5000;
-      const snd = localPlayer ? audioReady : remoteAudio;
       const dot = $('connDot'), txt = $('connText');
-      if (seen && snd) { dot.className = 'dot ok'; txt.textContent = 'Player screen connected · sound on'; }
-      else if (seen) { dot.className = 'dot warn'; txt.textContent = 'Player screen connected · sound is off until someone taps the player screen once'; }
-      else { dot.className = 'dot bad'; txt.textContent = 'Player screen not found. Open this page in another window of this browser and choose Player screen.'; }
+      const localPlayer = view === 'split';
+      const seen = localPlayer || Date.now() - lastBeat < 8000;
+      const snd = localPlayer ? audioReady : remoteAudio;
+      if (localPlayer && !online) { dot.className = 'dot warn'; txt.textContent = 'Test mode on this computer. Not linked to another computer right now.'; }
+      else if (!window.mqtt) { dot.className = 'dot bad'; txt.textContent = 'Could not load the sync library. Check the internet connection, then reload the page.'; }
+      else if (!online) { dot.className = 'dot warn'; txt.textContent = 'Connecting to the sync server' + (everConnected ? ' again' : '') + '… (server ' + (brokerIdx % BROKERS.length + 1) + ')'; }
+      else if (seen && snd) { dot.className = 'dot ok'; txt.textContent = 'Online · player terminal connected · sound on'; }
+      else if (seen) { dot.className = 'dot warn'; txt.textContent = 'Player terminal connected · sound is off. Press Activate terminal on the player computer.'; }
+      else { dot.className = 'dot bad'; txt.textContent = 'Online · waiting for the player terminal. On the player computer choose Player terminal and enter room code ' + room + '.'; }
     }
   }
 
   /* ---------- loop ---------- */
   setInterval(() => {
-    if (state.status === 'running' && state.endAt && Date.now() >= state.endAt) setState({ status: 'timeout', remainingMs: 0, endAt: 0 });
+    if (state.status === 'running' && state.endAt && now() >= state.endAt) setState({ status: 'timeout', remainingMs: 0, endAt: 0 });
     render();
   }, 200);
 
-  post({ type: 'hello' });
   route();
+  if (isGM() && !room) setRoom(newRoom()); else connect();
+  if (playerActive()) idbGet().then(v => { if (v && v.buf) { bgRaw = v.buf; bgName = v.name; decodeBg(); renderSetup(); } });
+  window.addEventListener('hashchange', () => { if (isGM() && !room) setRoom(newRoom()); else connect(); });
 })();
 </script>
 </body>
