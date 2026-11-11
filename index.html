@@ -23,6 +23,7 @@
   --ok: #4fe08a;
   --bad: #ff5468;
   --ink: #071012;
+  --steel: #8fa5a3;
   --f-display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
   --f-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --f-mono: "Azeret Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -192,6 +193,40 @@ input[type="range"] { width: 100%; accent-color: var(--readout); }
 input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
 .switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 
+
+/* ---------- victory: blast doors + win screen ---------- */
+.win { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; text-align: center; padding-block: 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); background: radial-gradient(80% 70% at 50% 50%, rgba(79,224,138,.22), transparent 70%), var(--bg); border: 6px solid var(--ok); box-shadow: inset 0 0 120px rgba(79,224,138,.35); overflow: hidden; }
+.win::before { content: ""; position: absolute; inset: 0; background: var(--ok); opacity: 0; pointer-events: none; }
+.win.pulse::before { animation: greenflash .55s ease-out 7; }
+@keyframes greenflash { 0% { opacity: .6; } 100% { opacity: 0; } }
+.win-inner { position: relative; display: grid; gap: clamp(8px, 1.5cqw, 18px); justify-items: center; min-width: 0; }
+.win-title { font-family: var(--f-display); font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: var(--ok); font-size: clamp(20px, 4.2cqw, 56px); line-height: 1.1; text-wrap: balance; }
+.win-big { font-family: var(--f-display); font-weight: 700; text-transform: uppercase; font-size: clamp(46px, 12cqw, 180px); line-height: .92; color: var(--fg); text-shadow: 0 0 40px rgba(79,224,138,.65); text-wrap: balance; }
+.win-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(20px, 5cqw, 64px); margin-top: 6px; }
+.win-stats div { display: grid; gap: 4px; }
+.win-stats b { font-size: clamp(28px, 5cqw, 64px); color: var(--ok); line-height: 1; }
+.win.reveal .win-big, .win.reveal .win-title, .win.reveal .win-stats { animation: pop .7s cubic-bezier(.2,1.4,.4,1) 1.3s both; }
+.win.reveal .win-title { animation-delay: 1.1s; }
+.win.reveal .win-stats { animation-delay: 1.6s; }
+@keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.doors { position: absolute; inset: 0; z-index: 8; overflow: hidden; pointer-events: none; }
+.door { position: absolute; top: 0; bottom: 0; width: 50.5%; background: repeating-linear-gradient(-45deg, var(--hazard) 0 26px, var(--ink) 26px 52px); box-shadow: 0 0 50px rgba(0,0,0,.75); transition: transform .42s cubic-bezier(.7,0,1,1); }
+.door.l { left: 0; transform: translateX(-102%); border-right: 4px solid var(--ink); }
+.door.r { right: 0; transform: translateX(102%); border-left: 4px solid var(--ink); }
+.door::after { content: attr(data-t); position: absolute; inset: 24% 14%; display: grid; place-items: center; padding: 8px; background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 3px solid var(--ink); border-radius: 6px; font-family: var(--f-display); font-weight: 700; text-transform: uppercase; letter-spacing: .2em; color: var(--muted); font-size: clamp(13px, 2.6cqw, 32px); text-align: center; }
+.doors.shut .door { transform: translateX(0); }
+.doors.open .door { transition: transform 2.4s cubic-bezier(.45,0,.25,1); }
+.doors.open .door.l { transform: translateX(-102%); }
+.doors.open .door.r { transform: translateX(102%); }
+.seal { position: absolute; left: 50%; top: 50%; width: clamp(90px, 18cqw, 220px); max-width: 100%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; border: clamp(6px, 1.2cqw, 14px) solid var(--steel); box-shadow: 0 0 0 6px var(--ink), 0 0 30px rgba(0,0,0,.6); background: conic-gradient(var(--panel-2) 0 8%, var(--ink) 8% 25%, var(--panel-2) 25% 33%, var(--ink) 33% 50%, var(--panel-2) 50% 58%, var(--ink) 58% 75%, var(--panel-2) 75% 83%, var(--ink) 83%); opacity: 0; transition: opacity .15s, rotate .55s cubic-bezier(.5,0,.3,1.4), scale .5s; }
+.seal::after { content: ""; position: absolute; inset: 34%; border-radius: 50%; background: var(--steel); }
+.doors.shut .seal { opacity: 1; transition: opacity .15s .38s, rotate .55s cubic-bezier(.5,0,.3,1.4), scale .5s; }
+.doors.unlock .seal { rotate: 120deg; }
+.doors.open .seal { opacity: 0; scale: .6; transition: opacity .5s, rotate .55s, scale .5s; }
+#player.thud { animation: thud .3s; }
+@keyframes thud { 20% { transform: translateY(6px); } 50% { transform: translateY(-3px); } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
 }
@@ -284,6 +319,22 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
       <div class="hazard"></div>
     </div>
 
+    <div class="win" id="win" hidden>
+      <div class="win-inner">
+        <div class="label">Override accepted · Lab 4B · Specimen BX-217 secured</div>
+        <div class="win-title">Containment restored</div>
+        <div class="win-big">You escaped</div>
+        <div class="win-stats">
+          <div><span class="label">Time left</span><b class="mono" id="winLeft">00:00</b></div>
+          <div><span class="label">Escape time</span><b class="mono" id="winUsed">00:00</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="doors" id="doors" hidden>
+      <div class="door l" data-t="Containment"></div>
+      <div class="door r" data-t="Door 4B"></div>
+      <div class="seal"></div>
+    </div>
     <div class="flash-overlay" id="flash"></div>
     <div class="arm" id="arm" hidden>
       <button type="button" id="armBtn"><b>Activate terminal</b><span>Tap once to switch on the lab sound system. Browsers only allow sound after a tap.</span></button>
@@ -378,7 +429,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
           <div class="divider"></div>
           <div class="field">
             <span>Test on the player screen</span>
-            <div class="row"><button class="btn" data-test="correct">Correct</button><button class="btn" data-test="wrong">Wrong</button><button class="btn" data-test="alarm">Time up</button></div>
+            <div class="row"><button class="btn" data-test="victory">Win sequence</button><button class="btn" data-test="wrong">Wrong</button><button class="btn" data-test="alarm">Time up</button></div>
           </div>
         </div>
 
@@ -522,6 +573,74 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
     msg: () => { tone({ f: 988, type: 'sine', d: 0.25, v: 0.15 }); tone({ f: 1319, type: 'sine', t: 0.18, d: 0.4, v: 0.15 }); }
   };
 
+  /* ---------- victory sounds ---------- */
+  let noiseBuf = null;
+  function noise({ t = 0, d = 0.3, v = 0.3, type = 'lowpass', f = 1000, f2 = 0, q = 0.7 }) {
+    if (!ctx || !audioReady) return;
+    if (!noiseBuf) {
+      const len = ctx.sampleRate * 2; noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const c = noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) c[i] = Math.random() * 2 - 1;
+    }
+    const s = ctx.currentTime + t, src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+    const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.setValueAtTime(f, s); fl.Q.value = q;
+    if (f2) fl.frequency.exponentialRampToValueAtTime(f2, s + d);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, s);
+    g.gain.exponentialRampToValueAtTime(v, s + Math.min(0.02, d / 4)); g.gain.exponentialRampToValueAtTime(0.0001, s + d);
+    src.connect(fl).connect(g).connect(master); src.start(s); src.stop(s + d + 0.05);
+  }
+  function brass(f, t, d, v = 0.1) {
+    if (!ctx || !audioReady) return;
+    const s = ctx.currentTime + t, lp = ctx.createBiquadFilter(), g = ctx.createGain();
+    lp.type = 'lowpass'; lp.frequency.setValueAtTime(500, s); lp.frequency.exponentialRampToValueAtTime(2800, s + 0.06); lp.frequency.exponentialRampToValueAtTime(1100, s + d);
+    g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(v, s + 0.03); g.gain.setValueAtTime(v, s + d * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, s + d);
+    lp.connect(g).connect(master);
+    [1, 1.006, 0.5].forEach(m => { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f * m; o.connect(lp); o.start(s); o.stop(s + d + 0.05); });
+  }
+  function lowTone(f, f2, t, d, v) {
+    if (!ctx || !audioReady) return;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 220; lp.connect(master);
+    tone({ f, f2, type: 'sawtooth', t, d, v, dest: lp });
+  }
+  Object.assign(sfx, {
+    granted: () => { tone({ f: 1320, type: 'sine', d: 0.12, v: 0.2 }); tone({ f: 1760, type: 'sine', t: 0.1, d: 0.22, v: 0.2 }); },
+    thud: () => { tone({ f: 95, f2: 32, type: 'sine', d: 0.6, v: 0.6 }); noise({ type: 'lowpass', f: 500, d: 0.3, v: 0.5 }); },
+    clack: () => {
+      noise({ type: 'highpass', f: 2500, d: 0.05, v: 0.45 }); tone({ f: 320, type: 'square', d: 0.04, v: 0.15 });
+      noise({ type: 'bandpass', f: 1400, t: 0.13, d: 0.07, v: 0.6, q: 2 }); tone({ f: 180, type: 'square', t: 0.13, d: 0.06, v: 0.2 });
+    },
+    hiss: () => noise({ type: 'bandpass', f: 5000, f2: 800, d: 2, v: 0.4, q: 0.5 }),
+    rumble: () => { lowTone(52, 38, 0, 2.4, 0.22); noise({ type: 'lowpass', f: 260, d: 2.4, v: 0.25 }); },
+    fanfare: () => {
+      [[392, 0, .17], [523.25, .17, .17], [659.25, .34, .17], [784, .51, .42], [659.25, .98, .15], [784, 1.14, 1.7]].forEach(([f, t, d]) => brass(f, t, d, 0.11));
+      [523.25, 659.25, 1046.5].forEach(f => brass(f, 1.14, 1.7, 0.06));
+      [2093, 2637, 3136].forEach((f, i) => tone({ f, type: 'sine', t: 1.2 + i * 0.08, d: 1.4, v: 0.05 }));
+    }
+  });
+
+  /* ---------- victory sequence ---------- */
+  let victoryPhase = 'none', previewWin = false, vTimers = [];
+  function cancelVictory() {
+    vTimers.forEach(clearTimeout); vTimers = [];
+    victoryPhase = 'none'; previewWin = false;
+    $('doors').hidden = true; $('doors').className = 'doors'; $('win').className = 'win';
+  }
+  function playVictory(preview) {
+    cancelVictory();
+    const d = $('doors'), w = $('win'), p = $('player');
+    previewWin = !!preview; victoryPhase = 'doors';
+    d.hidden = false; void d.offsetWidth; render();
+    const at = (ms, fn) => vTimers.push(setTimeout(fn, ms));
+    sfx.granted();
+    at(40, () => d.classList.add('shut'));
+    at(440, () => { sfx.thud(); p.classList.remove('thud'); void p.offsetWidth; p.classList.add('thud'); });
+    at(1150, () => { d.classList.add('unlock'); sfx.clack(); });
+    at(1500, () => sfx.hiss());
+    at(1750, () => { victoryPhase = 'revealed'; w.classList.add('reveal'); render(); d.classList.add('open'); sfx.rumble(); });
+    at(3200, () => { sfx.fanfare(); w.classList.add('pulse'); });
+    at(4300, () => { d.hidden = true; p.classList.remove('thud'); });
+    if (preview) at(12000, () => { cancelVictory(); render(); });
+  }
+
   function startSynthBg() {
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 280;
     const droneGain = ctx.createGain(); droneGain.gain.value = 0.16;
@@ -571,7 +690,8 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
 
   function runCmd(name) {
     if (!playerActive()) return;
-    if (name === 'attention') { sfx.attention(); flash('attn'); }
+    if (name === 'victory') playVictory(true);
+    else if (name === 'attention') { sfx.attention(); flash('attn'); }
     else if (sfx[name]) sfx[name]();
   }
   function flash(kind) {
@@ -588,7 +708,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   let kpFlash = '', kpFlashT = 0, kpNote = '';
   function onState(prev) {
     if (playerActive()) {
-      if (prev.status !== 'escaped' && state.status === 'escaped') { sfx.correct(); flash('win'); setKpFlash('ok', 'Access granted'); }
+      if (prev.status !== 'escaped' && state.status === 'escaped') { setKpFlash('ok', 'Access granted'); playVictory(false); }
       if (prev.status !== 'timeout' && state.status === 'timeout') sfx.alarm();
       if (state.attemptSeq > prev.attemptSeq) {
         const last = state.attempts[state.attempts.length - 1];
@@ -601,6 +721,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
     }
     if (state.status !== prev.status && state.status !== 'running') entry = '';
     if (state.status === 'ready' && prev.status !== 'ready') { kpFlash = ''; kpNote = ''; clearTimeout(kpFlashT); }
+    if (prev.status === 'escaped' && state.status !== 'escaped') cancelVictory();
     syncBg(); render();
   }
   function setKpFlash(kind, note) {
@@ -764,6 +885,9 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
       const disabled = !(st === 'running' && lock === 0);
       $('keys').querySelectorAll('.key').forEach(k => { k.disabled = disabled; });
       $('pMsg').hidden = !state.message; $('pMsgText').textContent = state.message;
+      const showWin = (st === 'escaped' || previewWin) && victoryPhase !== 'doors';
+      $('win').hidden = !showWin;
+      if (showWin) { $('winLeft').textContent = fmt(rem); $('winUsed').textContent = fmt(Math.max(0, state.durationMs - rem)); }
       // final countdown beeps
       const sec = Math.ceil(rem / 1000);
       if (st === 'running' && sec !== lastSec && sec <= 10 && sec > 0) sfx.beep();
