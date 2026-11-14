@@ -129,6 +129,12 @@ body[data-view="player"] #player { min-height: 100%; height: 100%; }
 .key:hover { border-color: var(--readout); }
 .key:active { background: var(--readout); color: var(--ink); }
 .key.fn { font-family: var(--f-display); font-size: 14px; letter-spacing: .1em; color: var(--muted); }
+.keys.letters { grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.keys.letters .key { min-height: clamp(44px, 5.6cqw, 60px); font-size: clamp(17px, 2.4cqw, 24px); }
+.keys.letters .key.fn { font-size: 12px; letter-spacing: .08em; }
+.key.span2 { grid-column: span 2; }
+.key.mode { grid-column: 1 / -1; min-height: 42px; font-family: var(--f-display); font-size: 13px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--readout); border-style: dashed; border-color: var(--readout); background: transparent; }
+.key.mode:active { background: var(--readout); color: var(--ink); }
 .keys:has(.key:disabled) .key:disabled { opacity: .35; cursor: not-allowed; }
 .lock-cover { position: absolute; inset: 0; border-radius: 10px; display: grid; place-content: center; gap: 6px; text-align: center; background: repeating-linear-gradient(-45deg, rgba(255,84,104,.10) 0 16px, transparent 16px 32px), var(--ink); border: 1px solid var(--bad); padding: 16px; }
 .lock-cover b { font-family: var(--f-display); letter-spacing: .18em; text-transform: uppercase; color: var(--bad); font-size: 18px; }
@@ -310,6 +316,12 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
           <button class="key" data-k="4">4</button><button class="key" data-k="5">5</button><button class="key" data-k="6">6</button>
           <button class="key" data-k="7">7</button><button class="key" data-k="8">8</button><button class="key" data-k="9">9</button>
           <button class="key fn" data-k="del">Delete</button><button class="key" data-k="0">0</button><button class="key fn" data-k="clr">Clear</button>
+          <button class="key mode" data-mode="abc" type="button">ABC · Letter keys</button>
+        </div>
+        <div class="keys letters" id="lettersKeys" hidden>
+          <button class="key" data-k="A">A</button><button class="key" data-k="B">B</button><button class="key" data-k="C">C</button><button class="key" data-k="D">D</button><button class="key" data-k="E">E</button><button class="key" data-k="F">F</button><button class="key" data-k="G">G</button><button class="key" data-k="H">H</button><button class="key" data-k="I">I</button><button class="key" data-k="J">J</button><button class="key" data-k="K">K</button><button class="key" data-k="L">L</button><button class="key" data-k="M">M</button><button class="key" data-k="N">N</button><button class="key" data-k="O">O</button><button class="key" data-k="P">P</button><button class="key" data-k="Q">Q</button><button class="key" data-k="R">R</button><button class="key" data-k="S">S</button><button class="key" data-k="T">T</button><button class="key" data-k="U">U</button><button class="key" data-k="V">V</button><button class="key" data-k="W">W</button><button class="key" data-k="X">X</button><button class="key" data-k="Y">Y</button><button class="key" data-k="Z">Z</button>
+          <button class="key fn span2" data-k="del">Delete</button><button class="key fn span2" data-k="clr">Clear</button>
+          <button class="key mode" data-mode="num" type="button">123 · Number keys</button>
         </div>
         <div class="lock-cover" id="lockCover" hidden>
           <b>Terminal locked</b>
@@ -608,7 +620,9 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   function setRoom(r) {
     r = cleanRoom(r); if (!r) return false;
     if (!isGM() && r !== room) { state = clone(DEFAULT); persist(); } // the player takes the console's state for the new room
-    room = r; store.set(ROOM_KEY, r); brokerIdx = 0; connect(); return true;
+    room = r; store.set(ROOM_KEY, r); brokerIdx = 0;
+    if (document.activeElement !== $('pRoom')) $('pRoom').value = r;
+    connect(); return true;
   }
 
   function persist() { store.set(KEY, JSON.stringify(state)); }
@@ -897,7 +911,15 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
       else setState({ wrongStreak: streak, lastWrongAt: t, attempts, attemptSeq: seq });
     }
   }
-  $('keys').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) press(b.dataset.k); });
+  function setKpMode(mode) {
+    $('keys').hidden = mode !== 'num';
+    $('lettersKeys').hidden = mode !== 'abc';
+    sfx.key();
+  }
+  $('kpPanel').addEventListener('click', e => {
+    const m = e.target.closest('[data-mode]'); if (m) { if (!audioReady && room) initAudio(); setKpMode(m.dataset.mode); return; }
+    const b = e.target.closest('[data-k]'); if (b) press(b.dataset.k);
+  });
   // Keyboard or USB/wireless number pad on the player computer.
   function keyFor(e) {
     const m = /^Numpad(\d)$/.exec(e.code || '');
@@ -1035,7 +1057,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
       else if (st === 'running') { lc = 'ready'; mt = entry.length === 4 ? 'Verifying…' : 'Type the 4-character code'; }
       lamp.dataset.c = lc; msg.textContent = mt; msg.className = 'kp-msg ' + mc;
       const disabled = !(st === 'running' && lock === 0);
-      $('keys').querySelectorAll('.key').forEach(k => { k.disabled = disabled; });
+      $('kpPanel').querySelectorAll('.key').forEach(k => { k.disabled = disabled; });
       $('pMsg').hidden = !state.message; $('pMsgText').textContent = state.message;
       const showWin = (st === 'escaped' || previewWin) && victoryPhase !== 'doors';
       $('win').hidden = !showWin;
