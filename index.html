@@ -416,9 +416,9 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
         <div class="card">
           <h2>Override code</h2>
           <div class="field">
-            <span>4-digit code that stops the timer</span>
+            <span>4-character code that stops the timer: digits 0–9 and capital letters A–Z</span>
             <div class="row">
-              <input type="text" class="code" id="codeInput" inputmode="numeric" maxlength="4" autocomplete="off" value="1234" aria-label="Override code">
+              <input type="text" class="code" id="codeInput" inputmode="text" autocapitalize="characters" spellcheck="false" maxlength="4" autocomplete="off" value="1234" aria-label="Override code">
               <button class="btn primary" id="codeSave">Save code</button>
             </div>
             <p class="hint" id="codeHint">Current code: <span class="mono" id="codeCurrent">1234</span></p>
@@ -876,7 +876,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
     if (!canEnter()) return;
     if (k === 'clr') entry = '';
     else if (k === 'del') entry = entry.slice(0, -1);
-    else if (/^\d$/.test(k) && entry.length < 4) entry += k;
+    else if (/^[0-9A-Z]$/.test(k) && entry.length < 4) entry += k;
     sfx.key();
     if (kpFlash === 'bad') { kpFlash = ''; kpNote = ''; }
     render();
@@ -905,10 +905,11 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
     if (e.code === 'NumpadDecimal' || e.key === 'Backspace') return 'del';
     if (e.code === 'NumpadSubtract' || e.key === 'Escape') return 'clr';
     if (/^\d$/.test(e.key)) return e.key;
+    if (/^[a-z]$/i.test(e.key)) return e.key.toUpperCase(); // letters count as capitals
     return null;
   }
   document.addEventListener('keydown', e => {
-    if (!playerActive() || !$('arm').hidden || e.target.closest('input, textarea')) return;
+    if (!playerActive() || !$('arm').hidden || e.target.closest('input, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = keyFor(e); if (!k) return;
     e.preventDefault(); press(k);
   });
@@ -973,10 +974,10 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
   });
   document.querySelectorAll('[data-adj]').forEach(b => b.onclick = () => adjust(+b.dataset.adj));
 
-  $('codeInput').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4); });
+  $('codeInput').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 4); });
   $('codeSave').onclick = () => {
     const v = $('codeInput').value;
-    if (!/^\d{4}$/.test(v)) { $('codeHint').className = 'hint err'; $('codeHint').textContent = 'The code needs exactly 4 digits.'; return; }
+    if (!/^[0-9A-Z]{4}$/.test(v)) { $('codeHint').className = 'hint err'; $('codeHint').textContent = 'The code needs exactly 4 characters: digits 0–9 or capital letters A–Z.'; return; }
     gmCode = v; store.set(CODE_KEY, v);
     setState({ passHash: passHash(v), wrongStreak: 0, lastWrongAt: 0 });
     $('codeHint').className = 'hint ok'; $('codeHint').innerHTML = 'Saved. Current code: <span class="mono" id="codeCurrent">' + v + '</span>';
@@ -1031,7 +1032,7 @@ input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
       else if (lock > 0) { lc = 'bad'; mt = 'Terminal locked'; mc = 'bad'; }
       else if (kpFlash === 'bad') { lc = 'bad'; mt = kpNote; mc = 'bad'; }
       else if (st === 'paused') { lc = 'idle'; mt = 'Keypad paused'; }
-      else if (st === 'running') { lc = 'ready'; mt = entry.length === 4 ? 'Verifying…' : 'Enter 4 digits'; }
+      else if (st === 'running') { lc = 'ready'; mt = entry.length === 4 ? 'Verifying…' : 'Type the 4-character code'; }
       lamp.dataset.c = lc; msg.textContent = mt; msg.className = 'kp-msg ' + mc;
       const disabled = !(st === 'running' && lock === 0);
       $('keys').querySelectorAll('.key').forEach(k => { k.disabled = disabled; });
